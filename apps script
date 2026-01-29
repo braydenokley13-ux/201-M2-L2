@@ -1,0 +1,163 @@
+// === CONFIG ===
+const SCENARIOS_SHEET = "Scenarios";
+const CLAIM_CODE = "L2-201-M2-PLAYER";
+
+// === MAIN SIMULATION ===
+function runPlayerEconomics() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SCENARIOS_SHEET);
+
+  const startRow = 2;
+  const endRow = 9; // 8 players/scenarios
+  const ratings = [];
+  const email = Session.getActiveUser().getEmail();
+
+  for (let r = startRow; r <= endRow; r++) {
+    const decision = sheet.getRange(r, 9).getValue(); // I: Agent Decision
+    if (decision !== "Take" && decision !== "Bet") continue;
+
+    // === Read core values ===
+    const baseVal = parseFloat(sheet.getRange(r, 3).getValue()) || 0; // C: Base Guaranteed
+    const incent = parseFloat(sheet.getRange(r, 4).getValue()) || 0; // D: Incentives
+    let riskRaw = sheet.getRange(r, 5).getValue(); // E: Risk %
+    const modelVal = parseFloat(sheet.getRange(r, 7).getValue()) || 0; // G: Model Value
+
+    // === Convert risk % → decimal ===
+    if (typeof riskRaw === "string" && riskRaw.includes("%")) {
+      riskRaw = parseFloat(riskRaw.replace("%", ""));
+    }
+    let risk = riskRaw > 1 ? riskRaw / 100 : parseFloat(riskRaw) || 0;
+    if (risk > 1) risk = 1;
+    if (risk < 0) risk = 0;
+
+    // === RNG outcomes ===
+    const injurySeed = Math.random();
+    const injured = injurySeed < risk;
+
+    // === Determine results ===
+    let earned, fb;
+    if (decision === "Take") {
+      earned = baseVal; // No upside, full guarantee
+      if (injured) {
+        fb = `Smart call — your client got hurt, but the guaranteed $${earned}M kept them secure.`;
+      } else {
+        fb = `Safe and steady — you locked in $${earned}M. No risk, no bonus, but no stress.`;
+      }
+    } else if (decision === "Bet") {
+      if (injured) {
+        earned = baseVal; 
+        fb = `Tough break — you bet on performance, but injury wiped out incentives. You finish with $${earned}M.`;
+      } else {
+        const variance = (Math.random() - 0.3) * incent; // create some upside or small downside
+        earned = baseVal + incent + variance;
+        fb = `High-risk, high-reward — your client stayed healthy and earned $${earned.toFixed(1)}M.`;
+      }
+    }
+
+    // === Write numeric outcome ===
+    sheet.getRange(r, 10).setValue(earned.toFixed(1)); // J: Outcome
+
+    // === Rating ===
+    const pct = modelVal ? earned / modelVal : 0;
+    let rating;
+
+    // Fairer system: taking a safe deal when injured is still smart
+    if (decision === "Take" && injured) {
+      rating = "Silver";
+    } else if (pct >= 0.95) {
+      rating = "Gold";
+    } else if (pct >= 0.85) {
+      rating = "Silver";
+    } else {
+      rating = "Bronze";
+    }
+
+    sheet.getRange(r, 11).setValue(rating); // K: Rating
+    ratings.push(rating);
+
+    // === Feedback + Lesson ===
+    fb += injured
+      ? " Lesson: Even the right model can’t predict injuries — guarantees matter."
+      : " Lesson: Betting can pay off, but only when your timing and luck align.";
+    sheet.getRange(r, 12).setValue(fb); // L: Feedback
+  }
+
+  // === Summary ===
+  const b10 = sheet.getRange("B10");
+  const b11 = sheet.getRange("B11");
+
+  // Convert ratings → numeric score
+  let score = 0;
+  ratings.forEach(r => {
+    if (r === "Gold") score += 3;
+    else if (r === "Silver") score += 2;
+    else score += 1;
+  });
+  const avg = ratings.length ? score / ratings.length : 0;
+  const roundedAvg = Math.round(avg * 100) / 100;
+
+  // === Claim Code logic ===
+  if (roundedAvg >= 1.9) {
+    b10.setValue("Excellent round — you balanced risk and reward like a pro!");
+    b11.setValue(CLAIM_CODE);
+    try {
+      MailApp.sendEmail({
+        to: email,
+        subject: "BOW Sports Capital | Player Economics Claim Code",
+        body:
+          "Congrats — you completed Player Economics!\n\nAverage Rating: " +
+          roundedAvg.toFixed(2) +
+          "\nClaim Code: " +
+          CLAIM_CODE +
+          "\n\nRemember: smart agents don’t chase money — they create value."
+      });
+    } catch (e) {
+      Logger.log("Email blocked in test mode");
+    }
+  } else {
+    b10.setValue("Keep refining your risk strategy to improve your rating.");
+    b11.setValue("— No Claim Code —");
+  }
+
+  // === Apply Conditional Formatting (auto-color) ===
+  colorCodeRatings(sheet, startRow, endRow);
+}
+
+// === CONDITIONAL FORMATTING ===
+function colorCodeRatings(sheet, startRow, endRow) {
+  const range = sheet.getRange(startRow, 11, endRow - startRow + 1, 1); // K column
+  const values = range.getValues();
+
+  for (let i = 0; i < values.length; i++) {
+    const rating = values[i][0];
+    const cell = range.getCell(i + 1, 1);
+
+    // Reset default
+    cell.setBackground("#ffffff").setFontColor("#000000");
+
+    if (rating === "Gold") {
+      cell.setBackground("#FFD700").setFontWeight("bold"); // gold color
+    } else if (rating === "Silver") {
+      cell.setBackground("#C0C0C0").setFontWeight("bold"); // silver
+    } else if (rating === "Bronze") {
+      cell.setBackground("#cd7f32").setFontWeight("bold"); // bronze
+    }
+  }
+}
+
+// === RESET WHEN “STARTING” IS SELECTED ===
+function onEdit(e) {
+  const sh = e.source.getActiveSheet();
+  if (sh.getName() !== SCENARIOS_SHEET) return;
+
+  const r = e.range.getRow();
+  const c = e.range.getColumn();
+  if (c !== 9) return; // I: Agent Decision
+
+  const val = e.value;
+  if (val === "STARTING") {
+    sh.getRange(r, 10, 1, 3).clearContent(); // clear J–L
+    sh.getRange("B10").setValue("Awaiting Action 🔁");
+    sh.getRange("B11").clearContent();
+  }
+}
