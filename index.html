@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MLB Player Economics - Agent Simulator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Landing Screen -->
+    <div id="landing-screen" class="screen active">
+        <div class="landing-content">
+            <h1 class="title">⚾ MLB Player Economics</h1>
+            <p class="subtitle">Agent Decision Simulator</p>
+            <p class="description">
+                You're a sports agent managing 8 MLB stars. Each player has a contract decision:<br>
+                <strong>Take the Guarantee</strong> (safe money) or <strong>Bet on Performance</strong> (risk injury for bigger rewards).
+            </p>
+            <button id="start-btn" class="btn-primary">Start Agent Career</button>
+        </div>
+    </div>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorial-modal" class="modal">
+        <div class="modal-content">
+            <h2>📋 How It Works</h2>
+            <div class="tutorial-section">
+                <h3>Your Mission</h3>
+                <p>Make contract decisions for 8 MLB players. Each decision affects their earnings and your rating.</p>
+            </div>
+            <div class="tutorial-section">
+                <h3>🛡️ Take the Guarantee</h3>
+                <p>Player gets the <strong>Base Guaranteed</strong> amount. Safe choice, no risk, no bonuses.</p>
+            </div>
+            <div class="tutorial-section">
+                <h3>🎲 Bet on Performance</h3>
+                <p>Player can earn <strong>Base + Incentives</strong> if healthy. But if injured, they only get the base.</p>
+            </div>
+            <div class="tutorial-section">
+                <h3>⭐ Ratings</h3>
+                <p><span class="rating-gold">Gold</span>: ≥95% of model value |
+                   <span class="rating-silver">Silver</span>: 85-95% |
+                   <span class="rating-bronze">Bronze</span>: &lt;85%</p>
+            </div>
+            <button id="tutorial-close" class="btn-primary">Got It - Let's Go!</button>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+        <div class="game-header">
+            <h2>Select a Player to Make Decision</h2>
+            <div class="progress-bar">
+                <span id="progress-text">Decisions Made: 0 / 8</span>
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+        </div>
+
+        <div id="players-grid" class="players-grid">
+            <!-- Player cards will be generated here -->
+        </div>
+    </div>
+
+    <!-- Decision Screen -->
+    <div id="decision-screen" class="screen">
+        <button id="back-btn" class="btn-back">← Back to Players</button>
+
+        <div class="decision-container">
+            <div class="player-detail">
+                <div class="player-header">
+                    <div class="player-avatar" id="detail-avatar"></div>
+                    <div class="player-info">
+                        <h2 id="detail-name"></h2>
+                        <p id="detail-team"></p>
+                        <p id="detail-position"></p>
+                    </div>
+                </div>
+
+                <div class="contract-details">
+                    <div class="stat-row">
+                        <span class="stat-label">💰 Base Guaranteed:</span>
+                        <span class="stat-value" id="detail-base"></span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">🎯 Performance Incentives:</span>
+                        <span class="stat-value" id="detail-incentives"></span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">⚠️ Injury Risk:</span>
+                        <span class="stat-value risk" id="detail-risk"></span>
+                    </div>
+                    <div class="stat-row">
+                        <span class="stat-label">📊 Model Value (Optimal):</span>
+                        <span class="stat-value" id="detail-model"></span>
+                    </div>
+                </div>
+
+                <div class="decision-buttons">
+                    <button class="btn-decision btn-take" id="btn-take">
+                        🛡️ Take the Guarantee<br>
+                        <small>Safe: Get <span id="take-amount"></span></small>
+                    </button>
+                    <button class="btn-decision btn-bet" id="btn-bet">
+                        🎲 Bet on Performance<br>
+                        <small>Risk: Up to <span id="bet-amount"></span></small>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Outcome Screen -->
+    <div id="outcome-screen" class="screen">
+        <div class="outcome-container">
+            <div class="outcome-header">
+                <h2 id="outcome-title"></h2>
+                <div class="outcome-player">
+                    <div class="player-avatar" id="outcome-avatar"></div>
+                    <h3 id="outcome-name"></h3>
+                </div>
+            </div>
+
+            <div class="outcome-details">
+                <div class="outcome-stat">
+                    <span class="outcome-label">Decision:</span>
+                    <span class="outcome-value" id="outcome-decision"></span>
+                </div>
+                <div class="outcome-stat">
+                    <span class="outcome-label">Result:</span>
+                    <span class="outcome-value" id="outcome-result"></span>
+                </div>
+                <div class="outcome-stat highlight">
+                    <span class="outcome-label">Earnings:</span>
+                    <span class="outcome-value" id="outcome-earnings"></span>
+                </div>
+                <div class="outcome-stat">
+                    <span class="outcome-label">Rating:</span>
+                    <span class="outcome-value" id="outcome-rating"></span>
+                </div>
+            </div>
+
+            <div class="outcome-feedback" id="outcome-feedback"></div>
+
+            <button id="continue-btn" class="btn-primary">Continue →</button>
+        </div>
+    </div>
+
+    <!-- Results Screen -->
+    <div id="results-screen" class="screen">
+        <div class="results-container">
+            <h1>📊 Final Results</h1>
+
+            <div class="results-summary">
+                <div class="summary-stat">
+                    <span class="summary-label">Total Earnings:</span>
+                    <span class="summary-value" id="total-earnings"></span>
+                </div>
+                <div class="summary-stat">
+                    <span class="summary-label">Average Rating:</span>
+                    <span class="summary-value" id="avg-rating"></span>
+                </div>
+            </div>
+
+            <div class="results-grid" id="results-grid">
+                <!-- Results cards will be generated here -->
+            </div>
+
+            <div class="final-message" id="final-message"></div>
+            <div class="claim-code" id="claim-code-container"></div>
+
+            <div class="results-actions">
+                <button id="replay-btn" class="btn-primary">🔄 Play Again</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
