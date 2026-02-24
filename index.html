@@ -3,20 +3,34 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MLB Player Economics - Agent Simulator</title>
+    <title>MLB Player Economics - Agent Simulator v2</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+
+    <!-- Confetti Container -->
+    <div id="confetti-container"></div>
+
     <!-- Landing Screen -->
     <div id="landing-screen" class="screen active">
         <div class="landing-content">
-            <h1 class="title">⚾ MLB Player Economics</h1>
-            <p class="subtitle">Agent Decision Simulator</p>
+            <div class="landing-badge">Season 2025</div>
+            <h1 class="title">⚾ MLB Agent Simulator</h1>
+            <p class="subtitle">Player Economics — Decision Engine</p>
             <p class="description">
-                You're a sports agent managing 8 MLB stars. Each player has a contract decision:<br>
-                <strong>Take the Guarantee</strong> (safe money) or <strong>Bet on Performance</strong> (risk injury for bigger rewards).
+                You're a sports agent managing 8 MLB stars.<br>
+                Each player needs a contract decision:<br>
+                <strong>Take the Guarantee</strong> (safe money) or <strong>Bet on Performance</strong> (risk for bigger rewards).
             </p>
-            <button id="start-btn" class="btn-primary">Start Agent Career</button>
+            <div class="landing-actions">
+                <button id="start-btn" class="btn-primary">Start Agent Career</button>
+                <button id="skip-tutorial-btn" class="btn-ghost" style="display:none;">Skip Tutorial</button>
+            </div>
+            <div id="best-score-preview" class="best-score-preview" style="display:none;">
+                <span>Your Best: <strong id="landing-best-earnings">--</strong></span>
+                <span>Played: <strong id="landing-times-played">--</strong>x</span>
+            </div>
         </div>
     </div>
 
@@ -24,85 +38,140 @@
     <div id="tutorial-modal" class="modal">
         <div class="modal-content">
             <h2>📋 How It Works</h2>
-            <div class="tutorial-section">
-                <h3>Your Mission</h3>
-                <p>Make contract decisions for 8 MLB players. Each decision affects their earnings and your rating.</p>
+            <div class="tutorial-grid">
+                <div class="tutorial-section">
+                    <div class="tutorial-icon">🎯</div>
+                    <h3>Your Mission</h3>
+                    <p>Make contract decisions for 8 MLB players. Every choice affects earnings and your final rating.</p>
+                </div>
+                <div class="tutorial-section">
+                    <div class="tutorial-icon">🛡️</div>
+                    <h3>Take the Guarantee</h3>
+                    <p>Player gets the <strong>Base Guaranteed</strong> amount — safe, no injury risk, no bonuses.</p>
+                </div>
+                <div class="tutorial-section">
+                    <div class="tutorial-icon">🎲</div>
+                    <h3>Bet on Performance</h3>
+                    <p>Player can earn <strong>Base + Incentives</strong> if healthy. Injury reduces or eliminates incentives.</p>
+                </div>
+                <div class="tutorial-section">
+                    <div class="tutorial-icon">📊</div>
+                    <h3>Expected Value</h3>
+                    <p>Each decision screen shows the <strong>EV</strong> of both choices — use math, not gut feeling.</p>
+                </div>
             </div>
-            <div class="tutorial-section">
-                <h3>🛡️ Take the Guarantee</h3>
-                <p>Player gets the <strong>Base Guaranteed</strong> amount. Safe choice, no risk, no bonuses.</p>
+            <div class="tutorial-ratings">
+                <span class="rating-gold">Gold</span>: ≥95% of model value &nbsp;|&nbsp;
+                <span class="rating-silver">Silver</span>: 85–95% &nbsp;|&nbsp;
+                <span class="rating-bronze">Bronze</span>: &lt;85%
             </div>
-            <div class="tutorial-section">
-                <h3>🎲 Bet on Performance</h3>
-                <p>Player can earn <strong>Base + Incentives</strong> if healthy. But if injured, they only get the base.</p>
-            </div>
-            <div class="tutorial-section">
-                <h3>⭐ Ratings</h3>
-                <p><span class="rating-gold">Gold</span>: ≥95% of model value |
-                   <span class="rating-silver">Silver</span>: 85-95% |
-                   <span class="rating-bronze">Bronze</span>: &lt;85%</p>
-            </div>
-            <button id="tutorial-close" class="btn-primary">Got It - Let's Go!</button>
+            <p class="tutorial-tip">💡 Tip: Use <kbd>T</kbd> / <kbd>B</kbd> keys on the decision screen. <kbd>Esc</kbd> goes back.</p>
+            <button id="tutorial-close" class="btn-primary">Got It — Let's Go!</button>
         </div>
     </div>
 
     <!-- Game Screen -->
     <div id="game-screen" class="screen">
         <div class="game-header">
-            <h2>Select a Player to Make Decision</h2>
-            <div class="progress-bar">
-                <span id="progress-text">Decisions Made: 0 / 8</span>
-                <div class="progress-fill" id="progress-fill"></div>
+            <div class="game-header-top">
+                <h2>Select a Player</h2>
+                <div class="header-stats-right">
+                    <div class="running-total-display">
+                        <span class="running-total-label">Running Total</span>
+                        <span class="running-total-value" id="running-total">$0.0M</span>
+                    </div>
+                    <div class="running-total-display">
+                        <span class="running-total-label">Best Score</span>
+                        <span class="running-total-value" id="header-best-score">—</span>
+                    </div>
+                </div>
+            </div>
+            <div class="progress-track">
+                <span id="progress-text">0 / 8 decisions made</span>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
             </div>
         </div>
 
         <div id="players-grid" class="players-grid">
-            <!-- Player cards will be generated here -->
+            <!-- Player cards generated by JS -->
         </div>
     </div>
 
     <!-- Decision Screen -->
     <div id="decision-screen" class="screen">
-        <button id="back-btn" class="btn-back">← Back to Players</button>
+        <div class="decision-wrapper">
+            <button id="back-btn" class="btn-back">← Back to Players</button>
 
-        <div class="decision-container">
-            <div class="player-detail">
+            <div class="decision-container">
+                <!-- Player Header -->
                 <div class="player-header">
                     <div class="player-avatar" id="detail-avatar"></div>
                     <div class="player-info">
                         <h2 id="detail-name"></h2>
-                        <p id="detail-team"></p>
-                        <p id="detail-position"></p>
+                        <p id="detail-team" class="player-team-label"></p>
+                        <span class="position-badge" id="detail-position"></span>
                     </div>
                 </div>
 
+                <p id="detail-description" class="player-description"></p>
+
+                <!-- Contract Stats -->
                 <div class="contract-details">
                     <div class="stat-row">
-                        <span class="stat-label">💰 Base Guaranteed:</span>
+                        <span class="stat-label">💰 Base Guaranteed</span>
                         <span class="stat-value" id="detail-base"></span>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">🎯 Performance Incentives:</span>
+                        <span class="stat-label">🎯 Performance Incentives</span>
                         <span class="stat-value" id="detail-incentives"></span>
                     </div>
-                    <div class="stat-row">
-                        <span class="stat-label">⚠️ Injury Risk:</span>
-                        <span class="stat-value risk" id="detail-risk"></span>
+                    <div class="stat-row risk-row">
+                        <span class="stat-label">⚠️ Injury Risk</span>
+                        <div class="risk-display">
+                            <div class="risk-meter">
+                                <div class="risk-fill" id="risk-fill"></div>
+                            </div>
+                            <span class="stat-value risk" id="detail-risk"></span>
+                        </div>
                     </div>
                     <div class="stat-row">
-                        <span class="stat-label">📊 Model Value (Optimal):</span>
+                        <span class="stat-label">📊 Model Value (Optimal)</span>
                         <span class="stat-value" id="detail-model"></span>
                     </div>
                 </div>
 
+                <!-- EV Panel -->
+                <div class="ev-panel">
+                    <div class="ev-header">Expected Value Analysis</div>
+                    <div class="ev-rows">
+                        <div class="ev-row ev-take-row">
+                            <div class="ev-option-label">🛡️ Take Guarantee</div>
+                            <div class="ev-option-value" id="ev-take"></div>
+                        </div>
+                        <div class="ev-row ev-bet-row">
+                            <div class="ev-option-label">🎲 Bet on Performance</div>
+                            <div class="ev-option-value" id="ev-bet"></div>
+                        </div>
+                    </div>
+                    <p class="ev-note">Model value target: <strong id="ev-model"></strong></p>
+                    <p class="ev-note ev-recommendation" id="ev-recommendation"></p>
+                </div>
+
+                <!-- Decision Buttons -->
                 <div class="decision-buttons">
                     <button class="btn-decision btn-take" id="btn-take">
-                        🛡️ Take the Guarantee<br>
-                        <small>Safe: Get <span id="take-amount"></span></small>
+                        <span class="btn-icon">🛡️</span>
+                        <span class="btn-title">Take the Guarantee</span>
+                        <span class="btn-detail">Locked in: <strong id="take-amount"></strong></span>
+                        <kbd class="key-hint">T</kbd>
                     </button>
                     <button class="btn-decision btn-bet" id="btn-bet">
-                        🎲 Bet on Performance<br>
-                        <small>Risk: Up to <span id="bet-amount"></span></small>
+                        <span class="btn-icon">🎲</span>
+                        <span class="btn-title">Bet on Performance</span>
+                        <span class="btn-detail">Up to: <strong id="bet-amount"></strong></span>
+                        <kbd class="key-hint">B</kbd>
                     </button>
                 </div>
             </div>
@@ -111,32 +180,39 @@
 
     <!-- Outcome Screen -->
     <div id="outcome-screen" class="screen">
-        <div class="outcome-container">
-            <div class="outcome-header">
+        <div class="outcome-container" id="outcome-container">
+            <div class="outcome-header" id="outcome-header">
                 <h2 id="outcome-title"></h2>
                 <div class="outcome-player">
                     <div class="player-avatar" id="outcome-avatar"></div>
                     <h3 id="outcome-name"></h3>
+                    <span class="outcome-injury-label" id="outcome-injury-label"></span>
                 </div>
             </div>
 
             <div class="outcome-details">
                 <div class="outcome-stat">
-                    <span class="outcome-label">Decision:</span>
+                    <span class="outcome-label">Decision</span>
                     <span class="outcome-value" id="outcome-decision"></span>
                 </div>
                 <div class="outcome-stat">
-                    <span class="outcome-label">Result:</span>
+                    <span class="outcome-label">Season Result</span>
                     <span class="outcome-value" id="outcome-result"></span>
                 </div>
                 <div class="outcome-stat highlight">
-                    <span class="outcome-label">Earnings:</span>
-                    <span class="outcome-value" id="outcome-earnings"></span>
+                    <span class="outcome-label">Earnings</span>
+                    <span class="outcome-value earnings-value" id="outcome-earnings">$0.0M</span>
                 </div>
                 <div class="outcome-stat">
-                    <span class="outcome-label">Rating:</span>
+                    <span class="outcome-label">Rating</span>
                     <span class="outcome-value" id="outcome-rating"></span>
                 </div>
+            </div>
+
+            <!-- What If Box -->
+            <div class="what-if-box" id="what-if-box">
+                <div class="what-if-label">🔀 What if you chose the other option?</div>
+                <div class="what-if-content" id="what-if-content"></div>
             </div>
 
             <div class="outcome-feedback" id="outcome-feedback"></div>
@@ -148,22 +224,38 @@
     <!-- Results Screen -->
     <div id="results-screen" class="screen">
         <div class="results-container">
-            <h1>📊 Final Results</h1>
+            <h1>📊 Season Results</h1>
 
+            <!-- Summary Stats -->
             <div class="results-summary">
                 <div class="summary-stat">
-                    <span class="summary-label">Total Earnings:</span>
+                    <span class="summary-label">Total Earnings</span>
                     <span class="summary-value" id="total-earnings"></span>
                 </div>
                 <div class="summary-stat">
-                    <span class="summary-label">Average Rating:</span>
+                    <span class="summary-label">Avg Rating Score</span>
                     <span class="summary-value" id="avg-rating"></span>
+                </div>
+                <div class="summary-stat">
+                    <span class="summary-label">Optimal EV Strategy</span>
+                    <span class="summary-value secondary" id="optimal-earnings"></span>
                 </div>
             </div>
 
-            <div class="results-grid" id="results-grid">
-                <!-- Results cards will be generated here -->
+            <!-- Personal Bests -->
+            <div class="personal-bests" id="personal-bests">
+                <div class="pb-item">
+                    <span class="pb-label">Best Ever</span>
+                    <strong id="best-earnings-result">--</strong>
+                </div>
+                <div class="pb-item">
+                    <span class="pb-label">Times Played</span>
+                    <strong id="times-played-result">--</strong>
+                </div>
             </div>
+
+            <!-- Individual Results Grid -->
+            <div class="results-grid" id="results-grid"></div>
 
             <div class="final-message" id="final-message"></div>
             <div class="claim-code" id="claim-code-container"></div>
