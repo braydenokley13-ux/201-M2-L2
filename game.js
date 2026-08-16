@@ -3,11 +3,25 @@ const CLAIM_CODE = "L2-201-M2-PLAYER";
 const MIN_RATING_FOR_CODE = 1.9;
 
 // === INJURY SEVERITY ===
+// Ordered, and it has to stay ordered: a worse injury must cost more. The
+// shipped table had MILD at 0.75, MODERATE at 1.00 and SEVERE at 0.90, so a
+// mild injury was the worst outcome available and a moderate one cost nothing
+// at all. `expectedInjuryMultiplier()` below reads these numbers rather than
+// restating them, so the expected value shown to the student is computed from
+// the same table that pays them.
 const INJURY_SEVERITY = {
-    MILD:     { multiplier: 0.75, label: 'Mild Injury' },
-    MODERATE: { multiplier: 1.00, label: 'Moderate Injury' },
-    SEVERE:   { multiplier: 0.90, label: 'Severe Injury' }
+    MILD:     { multiplier: 0.90, label: 'Mild Injury' },
+    MODERATE: { multiplier: 0.70, label: 'Moderate Injury' },
+    SEVERE:   { multiplier: 0.45, label: 'Severe Injury' }
 };
+
+// Must match the draw in resolveDecision().
+const INJURY_ODDS = { SEVERE: 0.15, MILD: 0.40, MODERATE: 0.45 };
+
+function expectedInjuryMultiplier() {
+    return Object.keys(INJURY_ODDS)
+        .reduce((sum, k) => sum + INJURY_ODDS[k] * INJURY_SEVERITY[k].multiplier, 0);
+}
 
 const LUCKY_RISK_THRESHOLD = 35;
 
@@ -25,10 +39,10 @@ const FEEDBACK_MESSAGES = {
         "Solid foundation play. Your client stayed healthy — in hindsight you could have bet — but the risk was real."
     ],
     'Bet+Injured': [
-        "Tough break — you bet on performance and injury hit. You finish with $BASE. Even great models can't predict fate.",
-        "The risk materialized. Performance incentives wiped out by injury. $BASE is what you've got — protect it next time.",
-        "Injury struck on a bet. $BASE is the floor. High-risk decisions require high confidence; review the numbers.",
-        "Model said bet, injury said no. $BASE earned. This is why diversifying your contract approach matters."
+        "Tough break — you bet on performance and injury hit. Betting meant giving up the guarantee, so the payout is a fraction of it. Even great models can't predict fate.",
+        "The risk materialized. Incentives wiped out, and without a signed guarantee your client absorbs the shortfall too.",
+        "Injury struck on a bet. There was no floor under this one — that was the price of the upside. Review the numbers before the next call.",
+        "Model said bet, injury said no. The guarantee you passed on is exactly what your client is missing now."
     ],
     'Bet+Healthy': [
         "High-risk, high-reward — your client stayed healthy and cashed the incentives. Timing and conviction paid off.",
@@ -199,13 +213,21 @@ function updatePersistStats(totalEarnings, avgRating) {
 document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('start-btn').addEventListener('click', showTutorial);
     document.getElementById('tutorial-close').addEventListener('click', startGame);
-    document.getElementById('back-btn').addEventListener('click', () => showScreen('game'));
+    // Every route back to the grid re-renders it. Without this the grid kept the
+    // DOM built at startGame(), so a player you had already decided still looked
+    // undecided and still carried its original click handler — you could open the
+    // same player over and over and never notice the other seven.
+    document.getElementById('back-btn').addEventListener('click', () => {
+        showScreen('game');
+        renderPlayers();
+    });
 
     document.getElementById('continue-btn').addEventListener('click', () => {
         if (gameState.completedCount === 8) {
             showResults();
         } else {
             showScreen('game');
+            renderPlayers();
         }
     });
 
@@ -356,6 +378,7 @@ function renderPlayers() {
 
 // === SHOW PLAYER DECISION SCREEN ===
 function showPlayerDecision(player) {
+    if (gameState.decisions[player.id]) return;
     gameState.currentPlayer = player;
 
     document.getElementById('detail-avatar').innerHTML = player.emoji;
@@ -384,7 +407,11 @@ function showPlayerDecision(player) {
     // EV calculations
     const evTake = player.baseGuaranteed;
     const risk   = player.riskPercent / 100;
-    const evBet  = (1 - risk) * (player.baseGuaranteed + player.incentives) + risk * player.baseGuaranteed;
+    // The injured branch pays base * severity, never the full guarantee, so the
+    // expected value has to carry that multiplier. Showing an EV the game does
+    // not pay is the one mistake this simulation cannot afford to make.
+    const evBet  = (1 - risk) * (player.baseGuaranteed + player.incentives)
+                 + risk * player.baseGuaranteed * expectedInjuryMultiplier();
 
     document.getElementById('ev-take').textContent = `$${evTake.toFixed(2)}M`;
     document.getElementById('ev-bet').textContent  = `$${evBet.toFixed(2)}M`;
@@ -432,7 +459,9 @@ function makeDecision(decision) {
             earned = player.baseGuaranteed * INJURY_SEVERITY[severityKey].multiplier;
         } else {
             // BUG FIX: clamp to baseGuaranteed floor
-            const variance = (Math.random() - 0.3) * player.incentives;
+            // Centred on zero: the screen promises base + incentives as the
+            // healthy expectation, so that has to be the mean, not a floor.
+            const variance = (Math.random() - 0.5) * player.incentives;
             earned = Math.max(
                 player.baseGuaranteed,
                 player.baseGuaranteed + player.incentives + variance
@@ -500,7 +529,7 @@ function makeDecision(decision) {
         feedback
     };
 
-    gameState.completedCount++;
+    gameState.completedCount = Object.keys(gameState.decisions).length;
     gameState.runningTotal = Object.values(gameState.decisions)
         .reduce((sum, d) => sum + d.earned, 0);
 
